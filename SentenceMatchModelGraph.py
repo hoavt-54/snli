@@ -15,12 +15,13 @@ class SentenceMatchModelGraph(object):
                  with_full_match=True, with_maxpool_match=True, with_attentive_match=True, with_max_attentive_match=True):
 
         # ======word representation layer======
-        in_question_repres = []
-        in_passage_repres = []
+        in_question_repres = [] # premise
+        in_passage_repres = [] # hypotheis
         self.question_lengths = tf.placeholder(tf.int32, [None])
         self.passage_lengths = tf.placeholder(tf.int32, [None])
         self.truth = tf.placeholder(tf.int32, [None]) # [batch_size]
         input_dim = 0
+        # word embedding
         if with_word and word_vocab is not None: 
             self.in_question_words = tf.placeholder(tf.int32, [None, None]) # [batch_size, question_len]
             self.in_passage_words = tf.placeholder(tf.int32, [None, None]) # [batch_size, passage_len]
@@ -33,7 +34,7 @@ class SentenceMatchModelGraph(object):
             with tf.device(cur_device):
                 self.word_embedding = tf.get_variable("word_embedding", trainable=word_vec_trainable, 
                                                   initializer=tf.constant(word_vocab.word_vecs), dtype=tf.float32)
-            # this is where we need to fix
+            #
             in_question_word_repres = tf.nn.embedding_lookup(self.word_embedding, self.in_question_words) # [batch_size, question_len, word_dim]
             in_passage_word_repres = tf.nn.embedding_lookup(self.word_embedding, self.in_passage_words) # [batch_size, passage_len, word_dim]
             print (in_question_word_repres)
