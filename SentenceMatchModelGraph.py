@@ -12,7 +12,7 @@ class SentenceMatchModelGraph(object):
                  with_lex_features=False,lex_dim=100,word_level_MP_dim=-1,sep_endpoint=False,end_model_combine=False,with_match_highway=False,
                  with_aggregation_highway=False,highway_layer_num=1,with_lex_decomposition=False, lex_decompsition_dim=-1,
                  with_left_match=True, with_right_match=True,
-                 with_full_match=True, with_maxpool_match=True, with_attentive_match=True, with_max_attentive_match=True):
+                 with_full_match=True, with_maxpool_match=True, with_attentive_match=True, with_max_attentive_match=True, with_dep=True):
 
         # ======word representation layer======
         in_question_repres = [] # premise
@@ -37,10 +37,10 @@ class SentenceMatchModelGraph(object):
             #
             in_question_word_repres = tf.nn.embedding_lookup(self.word_embedding, self.in_question_words) # [batch_size, question_len, word_dim]
             in_passage_word_repres = tf.nn.embedding_lookup(self.word_embedding, self.in_passage_words) # [batch_size, passage_len, word_dim]
-            print (in_question_word_repres)
+            #print (in_question_word_repres)
             in_question_repres.append(in_question_word_repres)
             in_passage_repres.append(in_passage_word_repres)
-
+            
             input_shape = tf.shape(self.in_question_words)
             batch_size = input_shape[0]
             question_len = input_shape[1]
@@ -48,15 +48,24 @@ class SentenceMatchModelGraph(object):
             passage_len = input_shape[1]
             input_dim += word_vocab.word_dim
         
-        #if with_dep:
-            #self.in_question_words = tf.placeholder(tf.int32, [None, None]) # [batch_size, question_len]
-            #self.in_passage_words = tf.placeholder(tf.int32, [None, None]) # [batch_size, passage_len]
-            #in_question_word_repres # [batch_size, question_len, word_dim]
+        if with_dep:
+            self.in_question_dependency = tf.placeholder(tf.float32, [None, None, word_vocab.parser.typesize]) # [batch_size, question_len, dep_dim]
+            self.in_passage_dependency = tf.placeholder(tf.float32, [None, None, word_vocab.parser.typesize]) # [batch_size, passage_len, dep_dim]
+            
+            #dependency representation is the same as data input
+            in_question_dep_repres = self.in_question_dependency
+            in_passage_dep_repres = self.in_passage_dependency
+            
+            in_question_repres.append(in_question_dep_repres)
+            in_passage_repres.append(in_passage_dep_repres)
+            
+            input_dim += word_vocab.parser.typesize # dependency_dim
+        
 
         if with_POS and POS_vocab is not None: 
             self.in_question_POSs = tf.placeholder(tf.int32, [None, None]) # [batch_size, question_len]
             self.in_passage_POSs = tf.placeholder(tf.int32, [None, None]) # [batch_size, passage_len]
-#             self.POS_embedding = tf.get_variable("POS_embedding", shape=[POS_vocab.size()+1, POS_vocab.word_dim], initializer=tf.constant(POS_vocab.word_vecs), dtype=tf.float32)
+            #self.POS_embedding = tf.get_variable("POS_embedding", shape=[POS_vocab.size()+1, POS_vocab.word_dim], initializer=tf.constant(POS_vocab.word_vecs), dtype=tf.float32)
             self.POS_embedding = tf.get_variable("POS_embedding", initializer=tf.constant(POS_vocab.word_vecs), dtype=tf.float32)
 
             in_question_POS_repres = tf.nn.embedding_lookup(self.POS_embedding, self.in_question_POSs) # [batch_size, question_len, POS_dim]
@@ -135,7 +144,9 @@ class SentenceMatchModelGraph(object):
             in_passage_repres.append(passage_char_outputs)
 
             input_dim += char_lstm_dim
-
+        #print('\n\n\n')
+        #print (in_question_repres)
+        #print('\n\n\n')
         in_question_repres = tf.concat(2, in_question_repres) # [batch_size, question_len, dim]
         in_passage_repres = tf.concat(2, in_passage_repres) # [batch_size, passage_len, dim]
 
@@ -274,7 +285,12 @@ class SentenceMatchModelGraph(object):
 
     def get_in_passage_words(self):
         return self.__in_passage_words
-
+    
+    def get_in_question_dependency(self):
+        return self.__in_question_dependency
+    
+    def get_in_passage_dependency(self):
+        return self.__in_passage_dependency
 
     def get_word_embedding(self):
         return self.__word_embedding
@@ -366,7 +382,12 @@ class SentenceMatchModelGraph(object):
 
     def set_in_passage_words(self, value):
         self.__in_passage_words = value
+    
+    def set_in_question_dependency(self, value):
+        self.__in_question_dependency = value
 
+    def set_in_passage_dependency(self, value):
+        self.__in_passage_dependency = value
 
     def set_word_embedding(self, value):
         self.__word_embedding = value
@@ -459,6 +480,11 @@ class SentenceMatchModelGraph(object):
     def del_in_passage_words(self):
         del self.__in_passage_words
 
+    def del_in_question_dependency(self):
+        del self.__in_question_dependency
+
+    def del_in_passage_dependency(self):
+        del self.__in_passage_dependency
 
     def del_word_embedding(self):
         del self.__word_embedding
@@ -536,6 +562,8 @@ class SentenceMatchModelGraph(object):
     truth = property(get_truth, set_truth, del_truth, "truth's docstring")
     in_question_words = property(get_in_question_words, set_in_question_words, del_in_question_words, "in_question_words's docstring")
     in_passage_words = property(get_in_passage_words, set_in_passage_words, del_in_passage_words, "in_passage_words's docstring")
+    in_question_dependency = property(get_in_question_dependency, set_in_question_dependency, del_in_question_dependency, "in_question_dependency's docstring")
+    in_passage_dependency = property(get_in_passage_dependency, set_in_passage_dependency, del_in_passage_dependency, "in_passage_dependency's docstring")
     word_embedding = property(get_word_embedding, set_word_embedding, del_word_embedding, "word_embedding's docstring")
     in_question_POSs = property(get_in_question_poss, set_in_question_poss, del_in_question_poss, "in_question_POSs's docstring")
     in_passage_POSs = property(get_in_passage_poss, set_in_passage_poss, del_in_passage_poss, "in_passage_POSs's docstring")

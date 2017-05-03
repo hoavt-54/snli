@@ -4,7 +4,7 @@ import numpy as np
 import re
 
 # import math
-MAX_VOCAB = 500
+MAX_VOCAB = 500000
 class Vocab(object):
     def __init__(self, vec_path=None, dim=100, fileformat='bin',voc=None, word2id=None, word_vecs=None, unk_mapping_path=None, parser=None): 
         self.parser = parser
@@ -287,7 +287,10 @@ class Vocab(object):
             idx = self.word2id.get(word)
             return self.word_vecs[idx]
         return None
-
+    
+    def dep_sequence(self, sentence):
+        vec_list = self.parser.parse(sentence)
+        return np.array(vec_list, dtype='float32')
     def to_index_sequence(self, sentence):
 #         sentence = sentence.strip().lower()
         sentence = sentence.strip()

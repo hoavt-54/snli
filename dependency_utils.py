@@ -38,6 +38,7 @@ class Parser(object):
     def parse(self, sentence, result=None):
         if sentence in self.cache:
             return self.cache[sentence]
+        print sentence
         if not result:
             result = self.dependency_parser.raw_parse(sentence)
             dep_res = result.next()
@@ -84,12 +85,20 @@ class Parser(object):
         self.cache[sentence] = parsed_sent
         return parsed_sent
     def load_cache(self):
-        if not os.path.isfile(self.path_to_save +'/dependency_train5.json'): return
-        with open(self.path_to_save +'/dependency_train5.json') as f:
+        import glob
+        #for jfile in glob.glob(self.path_to_save + '/dependency*.json'):
+        #    print jfile
+        #    with open(jfile) as f:
+        #        cache = json.load(f)
+        #        self.cache = dict(self.cache.items() + cache.items())
+        print "loading dependency cache"
+        
+        if not os.path.isfile(self.path_to_save +'/final_dependency.json'): return
+        with open(self.path_to_save +'/final_dependency.json') as f:
             self.cache = json.load(f)
             
     def save_cache(self):
-        with open(self.path_to_save +'/dependency_train5.json', 'w') as outfile:
+        with open(self.path_to_save +'/final_dependency.json', 'w') as outfile:
             json.dump(self.cache, outfile)
 
     def zerolistmaker(self, n):
@@ -105,12 +114,13 @@ class Parser(object):
 
 if __name__ == '__main__':
     parser = Parser()
-    #results = parser.parse('the blode woman is riding the bike\\')
-    #print '\n\n'
-    #for w in results: print w
+    results = parser.parse('the blode woman is riding the bike\\')
+    print '\n\n'
+    for w in results: print w
     #results = parser.parse_sentences(['the blode woman is riding the bike', 'Hoa is the most handsome guy on earth'])
     #import sys
-    #sys.exit()
+    parser.save_cache()
+    sys.exit()
     path = '/users/ud2017/hoavt/nli/snli_1.0/snli_1.0_train5.tsv'
     with open(path, 'r') as filein:
         count = 1
@@ -122,7 +132,7 @@ if __name__ == '__main__':
                 sentences.append(parts[1])
             if not parser.isParsed(parts[2]):
                 sentences.append(parts[2])
-            if(count % 100 == 0 and len(sentences) > 80):
+            if(count % 1000 == 0 and len(sentences) > 500):
                 parser.parse_sentences(sentences)
                 sentences = []
                 parser.save_cache()

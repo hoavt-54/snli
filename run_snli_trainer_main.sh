@@ -1,10 +1,10 @@
 #!/bin/sh
 #
 # Select Q
-#$ -q albert.q
+#$ -q main.q
 #
 # Your job name
-#$ -N nli_BiMPM_depfull
+#$ -N nli_BiMPM_dep_full
 #
 # Use current working directory
 #$ -cwd

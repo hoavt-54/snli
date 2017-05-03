@@ -35,10 +35,11 @@ def pad_3d_tensor(in_val, max_length1=None, max_length2=None, dtype=np.int32):
 
 class SentenceMatchDataStream(object):
     def __init__(self, inpath, word_vocab=None, char_vocab=None, POS_vocab=None, NER_vocab=None, label_vocab=None, batch_size=60, 
-                 isShuffle=False, isLoop=False, isSort=True, max_char_per_word=10, max_sent_length=200):
+                 isShuffle=False, isLoop=False, isSort=True, max_char_per_word=10, with_dep = False, max_sent_length=200):
         instances = []
         infile = open(inpath, 'rt')
         for line in infile:
+            #print (line)
             line = line.decode('utf-8').strip()
             if line.startswith('-'): continue
             items = re.split("\t", line)
@@ -52,14 +53,23 @@ class SentenceMatchDataStream(object):
                 label_id = int(label)
             word_idx_1 = word_vocab.to_index_sequence(sentence1)
             word_idx_2 = word_vocab.to_index_sequence(sentence2)
+            dependency1, dependency2 = None, None
+            if with_dep:
+                dependency1 = word_vocab.dep_sequence(items[1])#(sentence_length, dependency_dim)
+                dependency2 = word_vocab.dep_sequence(items[2])
+            #print (dependency2)
             char_matrix_idx_1 = char_vocab.to_character_matrix(sentence1)
             char_matrix_idx_2 = char_vocab.to_character_matrix(sentence2)
             if len(word_idx_1)>max_sent_length: 
                 word_idx_1 = word_idx_1[:max_sent_length]
                 char_matrix_idx_1 = char_matrix_idx_1[:max_sent_length]
+                if with_dep:
+                    dependency1 = dependency1[:max_sent_length, :]
             if len(word_idx_2)>max_sent_length:
                 word_idx_2 = word_idx_2[:max_sent_length]
                 char_matrix_idx_1 = char_matrix_idx_1[:max_sent_length]
+                if with_dep:
+                    dependency2 = dependency2[:max_sent_length, :]
 
             POS_idx_1 = None
             POS_idx_2 = None
@@ -79,7 +89,7 @@ class SentenceMatchDataStream(object):
             
 
             instances.append((label, sentence1, sentence2, label_id, word_idx_1, word_idx_2, char_matrix_idx_1, char_matrix_idx_2,
-                              POS_idx_1, POS_idx_2, NER_idx_1, NER_idx_2))
+                              POS_idx_1, POS_idx_2, NER_idx_1, NER_idx_2, dependency1, dependency2))
         infile.close()
 
         # sort instances based on sentence length
@@ -96,6 +106,8 @@ class SentenceMatchDataStream(object):
             label_id_batch = []
             word_idx_1_batch = []
             word_idx_2_batch = []
+            dependency1_batch = []
+            dependency2_batch = []
             char_matrix_idx_1_batch = []
             char_matrix_idx_2_batch = []
             sent1_length_batch = []
@@ -115,13 +127,17 @@ class SentenceMatchDataStream(object):
 
             for i in xrange(batch_start, batch_end):
                 (label, sentence1, sentence2, label_id, word_idx_1, word_idx_2, char_matrix_idx_1, char_matrix_idx_2,
-                 POS_idx_1, POS_idx_2, NER_idx_1, NER_idx_2) = instances[i]
+                 POS_idx_1, POS_idx_2, NER_idx_1, NER_idx_2, dependency1, dependency2) = instances[i]
                 label_batch.append(label)
                 sent1_batch.append(sentence1)
                 sent2_batch.append(sentence2)
                 label_id_batch.append(label_id)
                 word_idx_1_batch.append(word_idx_1)
                 word_idx_2_batch.append(word_idx_2)
+                # add sentence dependencies to batch
+                if with_dep:
+                    dependency1_batch.append(dependency1)
+                    dependency2_batch.append(dependency2)
                 char_matrix_idx_1_batch.append(char_matrix_idx_1)
                 char_matrix_idx_2_batch.append(char_matrix_idx_2)
                 sent1_length_batch.append(len(word_idx_1))
@@ -144,7 +160,7 @@ class SentenceMatchDataStream(object):
             # padding
             max_sent1_length = np.max(sent1_length_batch)
             max_sent2_length = np.max(sent2_length_batch)
-
+            #print('maxSentenceLength: ', max_sent1_length, max_sent2_length)
             max_char_length1 = np.max([np.max(aa) for aa in sent1_char_length_batch])
             if max_char_length1>max_char_per_word: max_char_length1=max_char_per_word
 
@@ -154,9 +170,25 @@ class SentenceMatchDataStream(object):
             label_id_batch = np.array(label_id_batch)
             word_idx_1_batch = pad_2d_matrix(word_idx_1_batch, max_length=max_sent1_length)
             word_idx_2_batch = pad_2d_matrix(word_idx_2_batch, max_length=max_sent2_length)
+            #print('word_idx_shape:', word_idx_1_batch.shape(), word_idx_2_batch.shape())
+            #print '\nword_idx_shape'
+            #print np.shape(word_idx_1_batch)
+            #print np.shape(word_idx_2_batch)
+            # padding sentence dependency
+            if with_dep:
+                dependency1_batch = pad_3d_tensor(dependency1_batch, max_length1=max_sent1_length, max_length2=word_vocab.parser.typesize)
+                dependency2_batch = pad_3d_tensor(dependency2_batch, max_length1=max_sent2_length, max_length2=word_vocab.parser.typesize)
+            #print('dependency shape:', dependency1_batch.shape(), dependency1_batch.shape())
+            #print '\ndependency shape'
+            #print np.shape(dependency1_batch)
+            #print np.shape(dependency2_batch)
 
             char_matrix_idx_1_batch = pad_3d_tensor(char_matrix_idx_1_batch, max_length1=max_sent1_length, max_length2=max_char_length1)
             char_matrix_idx_2_batch = pad_3d_tensor(char_matrix_idx_2_batch, max_length1=max_sent2_length, max_length2=max_char_length2)
+            
+            #print 'char_matrix shape'
+            #print np.shape(char_matrix_idx_1_batch)
+            #print np.shape(char_matrix_idx_2_batch)
 
             sent1_length_batch = np.array(sent1_length_batch)
             sent2_length_batch = np.array(sent2_length_batch)
@@ -175,7 +207,7 @@ class SentenceMatchDataStream(object):
             self.batches.append((label_batch, sent1_batch, sent2_batch, label_id_batch, word_idx_1_batch, word_idx_2_batch, 
                                  char_matrix_idx_1_batch, char_matrix_idx_2_batch, sent1_length_batch, sent2_length_batch, 
                                  sent1_char_length_batch, sent2_char_length_batch,
-                                 POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch))
+                                 POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch, dependency1_batch, dependency2_batch))
         
         instances = None
         self.num_batch = len(self.batches)

@@ -8,6 +8,7 @@ import re
 import tensorflow as tf
 
 from vocab_utils import Vocab
+from dependency_utils import Parser 
 from SentenceMatchDataStream import SentenceMatchDataStream
 from SentenceMatchModelGraph import SentenceMatchModelGraph
 import namespace_utils
@@ -56,19 +57,23 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
         (label_batch, sent1_batch, sent2_batch, label_id_batch, word_idx_1_batch, word_idx_2_batch, 
                                  char_matrix_idx_1_batch, char_matrix_idx_2_batch, sent1_length_batch, sent2_length_batch, 
                                  sent1_char_length_batch, sent2_char_length_batch,
-                                 POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch) = cur_dev_batch
+                                 POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch, dependency1_batch, dependency2_batch) = cur_dev_batch
         feed_dict = {
                     valid_graph.get_truth(): label_id_batch, 
                     valid_graph.get_question_lengths(): sent1_length_batch, 
                     valid_graph.get_passage_lengths(): sent2_length_batch, 
                     valid_graph.get_in_question_words(): word_idx_1_batch, 
-                    valid_graph.get_in_passage_words(): word_idx_2_batch, 
+                    valid_graph.get_in_passage_words(): word_idx_2_batch,
+                    #valid_graph.get_in_question_dependency(): dependency1_batch,
+                    #valid_graph.get_in_passage_dependency(): dependency2_batch,
 #                     valid_graph.get_question_char_lengths(): sent1_char_length_batch, 
 #                     valid_graph.get_passage_char_lengths(): sent2_char_length_batch, 
 #                     valid_graph.get_in_question_chars(): char_matrix_idx_1_batch, 
 #                     valid_graph.get_in_passage_chars(): char_matrix_idx_2_batch, 
                 }
-
+        if FLAGS.with_dep:
+                feed_dict[valid_graph.get_in_question_dependency()] = dependency1_batch
+                feed_dict[valid_graph.get_in_passage_dependency()] = dependency2_batch
         if char_vocab is not None:
             feed_dict[valid_graph.get_question_char_lengths()] = sent1_char_length_batch
             feed_dict[valid_graph.get_passage_char_lengths()] = sent2_char_length_batch
@@ -125,7 +130,10 @@ def main(_):
     namespace_utils.save_namespace(FLAGS, path_prefix + ".config.json")
 
     # build vocabs
-    word_vocab = Vocab(word_vec_path, fileformat='txt3') #fileformat='txt3'
+    parser = None
+    if FLAGS.with_dep:
+        parser=Parser()
+    word_vocab = Vocab(word_vec_path, fileformat='txt3', parser=parser) #fileformat='txt3'
     best_path = path_prefix + '.best.model'
     char_path = path_prefix + ".char_vocab"
     label_path = path_prefix + ".label_vocab"
@@ -173,21 +181,25 @@ def main(_):
     num_classes = label_vocab.size()
 
     print('Build SentenceMatchDataStream ... ')
+    print('Reading trainDataStream')
     trainDataStream = SentenceMatchDataStream(train_path, word_vocab=word_vocab, char_vocab=char_vocab, 
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
                                               batch_size=FLAGS.batch_size, isShuffle=True, isLoop=True, isSort=True, 
-                                              max_char_per_word=FLAGS.max_char_per_word, max_sent_length=FLAGS.max_sent_length)
-                                    
+                                              max_char_per_word=FLAGS.max_char_per_word, max_sent_length=FLAGS.max_sent_length, with_dep=FLAGS.with_dep)
+                        
+    print('Reading devDataStream')
     devDataStream = SentenceMatchDataStream(dev_path, word_vocab=word_vocab, char_vocab=char_vocab,
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
                                               batch_size=FLAGS.batch_size, isShuffle=False, isLoop=True, isSort=True, 
-                                              max_char_per_word=FLAGS.max_char_per_word, max_sent_length=FLAGS.max_sent_length)
+                                              max_char_per_word=FLAGS.max_char_per_word, max_sent_length=FLAGS.max_sent_length, with_dep=FLAGS.with_dep)
 
+    print('Reading testDataStream')
     testDataStream = SentenceMatchDataStream(test_path, word_vocab=word_vocab, char_vocab=char_vocab, 
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
                                               batch_size=FLAGS.batch_size, isShuffle=False, isLoop=True, isSort=True, 
-                                              max_char_per_word=FLAGS.max_char_per_word, max_sent_length=FLAGS.max_sent_length)
-
+                                                  max_char_per_word=FLAGS.max_char_per_word, max_sent_length=FLAGS.max_sent_length, with_dep=FLAGS.with_dep)
+    print('save cache file')
+    #word_vocab.parser.save_cache()
     print('Number of instances in trainDataStream: {}'.format(trainDataStream.get_num_instance()))
     print('Number of instances in devDataStream: {}'.format(devDataStream.get_num_instance()))
     print('Number of instances in testDataStream: {}'.format(testDataStream.get_num_instance()))
@@ -216,7 +228,7 @@ def main(_):
                  lex_decompsition_dim=FLAGS.lex_decompsition_dim,
                  with_left_match=(not FLAGS.wo_left_match), with_right_match=(not FLAGS.wo_right_match),
                  with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match), 
-                 with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match))
+                 with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match), with_dep=FLAGS.with_dep)
             tf.summary.scalar("Training Loss", train_graph.get_loss()) # Add a scalar summary for the snapshot loss.
         
 #         with tf.name_scope("Valid"):
@@ -233,7 +245,7 @@ def main(_):
                  lex_decompsition_dim=FLAGS.lex_decompsition_dim,
                  with_left_match=(not FLAGS.wo_left_match), with_right_match=(not FLAGS.wo_right_match),
                  with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match), 
-                 with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match))
+                 with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match), with_dep=FLAGS.with_dep)
 
                 
         initializer = tf.global_variables_initializer()
@@ -262,18 +274,24 @@ def main(_):
             (label_batch, sent1_batch, sent2_batch, label_id_batch, word_idx_1_batch, word_idx_2_batch, 
                                  char_matrix_idx_1_batch, char_matrix_idx_2_batch, sent1_length_batch, sent2_length_batch, 
                                  sent1_char_length_batch, sent2_char_length_batch,
-                                 POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch) = cur_batch
+                                 POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch, dependency1_batch, dependency2_batch) = cur_batch
             feed_dict = {
                          train_graph.get_truth(): label_id_batch, 
                          train_graph.get_question_lengths(): sent1_length_batch, 
                          train_graph.get_passage_lengths(): sent2_length_batch, 
                          train_graph.get_in_question_words(): word_idx_1_batch, 
-                         train_graph.get_in_passage_words(): word_idx_2_batch, 
+                         train_graph.get_in_passage_words(): word_idx_2_batch,
+                         #train_graph.get_in_question_dependency(): dependency1_batch,
+                         #train_graph.get_in_passage_dependency(): dependency2_batch,
 #                          train_graph.get_question_char_lengths(): sent1_char_length_batch, 
 #                          train_graph.get_passage_char_lengths(): sent2_char_length_batch, 
 #                          train_graph.get_in_question_chars(): char_matrix_idx_1_batch, 
 #                          train_graph.get_in_passage_chars(): char_matrix_idx_2_batch, 
                          }
+            if FLAGS.with_dep:
+                feed_dict[train_graph.get_in_question_dependency()] = dependency1_batch
+                feed_dict[train_graph.get_in_passage_dependency()] = dependency2_batch
+
             if char_vocab is not None:
                 feed_dict[train_graph.get_question_char_lengths()] = sent1_char_length_batch
                 feed_dict[train_graph.get_passage_char_lengths()] = sent2_char_length_batch
@@ -331,7 +349,7 @@ def main(_):
                  lex_decompsition_dim=FLAGS.lex_decompsition_dim,
                  with_left_match=(not FLAGS.wo_left_match), with_right_match=(not FLAGS.wo_right_match),
                  with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match), 
-                 with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match))
+                 with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match), with_dep=FLAGS.with_dep)
         vars_ = {}
         for var in tf.all_variables():
             if "word_embedding" in var.name: continue
@@ -399,7 +417,9 @@ if __name__ == '__main__':
     parser.add_argument('--wo_max_attentive_match', default=False, help='Without max attentive matching.', action='store_true')
     parser.add_argument('--wo_char', default=False, help='Without character-composed embeddings.', action='store_true')
     parser.add_argument('--config_file', default='quora.sample.config', help='path to config file')
-#     print("CUDA_VISIBLE_DEVICES " + os.environ['CUDA_VISIBLE_DEVICES'])
+    parser.add_argument('--with_dep', default=True, help='indicate whether we use dependency')
+
+    #print("CUDA_VISIBLE_DEVICES " + os.environ['CUDA_VISIBLE_DEVICES'])
     sys.stdout.flush()
     FLAGS, unparsed = parser.parse_known_args()
     # read from config file
