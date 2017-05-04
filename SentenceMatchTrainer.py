@@ -325,7 +325,10 @@ def main(_):
                 # Evaluate against the validation set.
                 print('Validation Data Eval:')
                 accuracy = evaluate(devDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab)
-                print("Current accuracy is %.2f" % accuracy)
+                print("Current accuracy on dev is %.2f" % accuracy)
+                
+                #accuracy_train = evaluate(trainDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab)
+                #print("Current accuracy on train is %.2f" % accuracy_train)
                 if accuracy>best_accuracy:
                     best_accuracy = accuracy
                     saver.save(sess, best_path)

@@ -4,7 +4,7 @@
 #$ -q main.q
 #
 # Your job name
-#$ -N nli_BiMPM_dep_full
+#$ -N nli_BiMPM_dep15epoches_full
 #
 # Use current working directory
 #$ -cwd

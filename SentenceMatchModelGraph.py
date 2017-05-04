@@ -60,7 +60,9 @@ class SentenceMatchModelGraph(object):
             in_passage_repres.append(in_passage_dep_repres)
             
             input_dim += word_vocab.parser.typesize # dependency_dim
-        
+            # embbeding dependency ()
+            
+
 
         if with_POS and POS_vocab is not None: 
             self.in_question_POSs = tf.placeholder(tf.int32, [None, None]) # [batch_size, question_len]
