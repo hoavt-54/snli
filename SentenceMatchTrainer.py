@@ -132,7 +132,7 @@ def main(_):
     # build vocabs
     parser = None
     if FLAGS.with_dep:
-        parser=Parser()
+        parser=Parser('final_dependency')
     word_vocab = Vocab(word_vec_path, fileformat='txt3', parser=parser) #fileformat='txt3'
     best_path = path_prefix + '.best.model'
     char_path = path_prefix + ".char_vocab"

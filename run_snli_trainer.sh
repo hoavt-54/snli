@@ -4,7 +4,7 @@
 #$ -q albert.q
 #
 # Your job name
-#$ -N nli_BiMPM_depfull
+#$ -N nli_BiMPM_dep_v800
 #
 # Use current working directory
 #$ -cwd

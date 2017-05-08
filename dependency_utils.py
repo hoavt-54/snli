@@ -7,10 +7,11 @@ path_to_models_jar = '/users/ud2017/hoavt/stanford_corenlp/stanford-corenlp-full
 #dependency_parser = StanfordDependencyParser(path_to_jar=path_to_jar, path_to_models_jar=path_to_models_jar)
 from collections import defaultdict
 class Parser(object):
-    def __init__(self, path_to_models_jar=path_to_models_jar, path_to_jar=path_to_jar, path_to_save='/users/ud2017/hoavt/nli/BiMPM/models'):
-        self.dependency_parser = StanfordDependencyParser(path_to_jar=path_to_jar, path_to_models_jar=path_to_models_jar)
+    def __init__(self, datasetName, path_to_models_jar=path_to_models_jar, path_to_jar=path_to_jar, path_to_save='/users/ud2017/hoavt/nli/BiMPM/models'):
+        self.dependency_parser = StanfordDependencyParser(path_to_jar=path_to_jar, path_to_models_jar=path_to_models_jar, java_options='-mx20000m')
         self.path_to_save = path_to_save
         self.cache = {}
+        self.datasetName = datasetName
         self.load_cache()
         #types = "acomp advcl advmod agent amod appos aux auxpass cc ccomp conj cop csubj csubjpass \
         #        dep det discourse dobj expl goeswith iobj mark mwe neg nn npadvmod nsubj nsubjpass \
@@ -93,12 +94,12 @@ class Parser(object):
         #        self.cache = dict(self.cache.items() + cache.items())
         print "loading dependency cache"
         
-        if not os.path.isfile(self.path_to_save +'/final_dependency.json'): return
-        with open(self.path_to_save +'/final_dependency.json') as f:
+        if not os.path.isfile(self.path_to_save + '/' + self.datasetName +'.json'): return
+        with open(self.path_to_save +'/' + self.datasetName + '.json') as f:
             self.cache = json.load(f)
             
     def save_cache(self):
-        with open(self.path_to_save +'/final_dependency.json', 'w') as outfile:
+        with open(self.path_to_save +'/' + self.datasetName + '.json', 'w') as outfile:
             json.dump(self.cache, outfile)
 
     def zerolistmaker(self, n):
@@ -113,15 +114,17 @@ class Parser(object):
         return emptylist
 
 if __name__ == '__main__':
-    parser = Parser()
-    results = parser.parse('the blode woman is riding the bike\\')
-    print '\n\n'
-    for w in results: print w
+    import sys
+    reload(sys)
+    sys.setdefaultencoding('utf8')
+    parser = Parser('multinli_train5')
+    #results = parser.parse('the blode woman is riding the bike\\')
+    #print '\n\n'
+    #for w in results: print w
     #results = parser.parse_sentences(['the blode woman is riding the bike', 'Hoa is the most handsome guy on earth'])
-    #import sys
-    parser.save_cache()
-    sys.exit()
-    path = '/users/ud2017/hoavt/nli/snli_1.0/snli_1.0_train5.tsv'
+    #parser.save_cache()
+    #sys.exit()
+    path = '/users/ud2017/hoavt/nli/multinli_0.9/multinli_0.9_train5.tsv'
     with open(path, 'r') as filein:
         count = 1
         sentences = []
@@ -132,10 +135,11 @@ if __name__ == '__main__':
                 sentences.append(parts[1])
             if not parser.isParsed(parts[2]):
                 sentences.append(parts[2])
-            if(count % 1000 == 0 and len(sentences) > 500):
+            if(count > 2 and len(sentences) > 1):
                 parser.parse_sentences(sentences)
                 sentences = []
                 parser.save_cache()
+                count = 0
             count+=1
         parser.parse_sentences(sentences)
     parser.save_cache()
