@@ -16,7 +16,9 @@ class SentenceMatchModelGraph(object):
 
         # ======word representation layer======
         in_question_repres = [] # premise
-        in_passage_repres = [] # hypotheis
+        in_question_dep_cons = [] # premise dependency connections
+        in_passage_repres = [] # hypothesis
+        in_passage_dep_cons = [] # hypothesis dependency connections
         self.question_lengths = tf.placeholder(tf.int32, [None])
         self.passage_lengths = tf.placeholder(tf.int32, [None])
         self.truth = tf.placeholder(tf.int32, [None]) # [batch_size]
@@ -51,7 +53,8 @@ class SentenceMatchModelGraph(object):
         if with_dep:
             self.in_question_dependency = tf.placeholder(tf.float32, [None, None, word_vocab.parser.typesize]) # [batch_size, question_len, dep_dim]
             self.in_passage_dependency = tf.placeholder(tf.float32, [None, None, word_vocab.parser.typesize]) # [batch_size, passage_len, dep_dim]
-            
+            self.in_question_dep_con = tf.placeholder(tf.int32, [None, None]) # [batch_size, question_len]
+            self.in_passage_dep_con = tf.placeholder(tf.int32, [None, None]) # [batch_size, passage_len]
             #dependency representation is the same as data input
             in_question_dep_repres = self.in_question_dependency
             in_passage_dep_repres = self.in_passage_dependency
@@ -60,8 +63,11 @@ class SentenceMatchModelGraph(object):
             in_passage_repres.append(in_passage_dep_repres)
             
             input_dim += word_vocab.parser.typesize # dependency_dim
-            # embbeding dependency ()
-            
+            # embedding dependency later here
+
+            #get dependency connections, do smth here? otherwise just pass self.in_question_dep_con to matching function
+            in_question_dep_cons = self.in_question_dep_con
+            in_passage_dep_cons = self.in_passage_dep_con
 
 
         if with_POS and POS_vocab is not None: 
@@ -173,6 +179,7 @@ class SentenceMatchModelGraph(object):
         
         # ========Bilateral Matching=====
         (match_representation, match_dim) = match_utils.bilateral_match_func2(in_question_repres, in_passage_repres,
+                        in_question_dep_cons, in_passage_dep_cons,
                         self.question_lengths, self.passage_lengths, question_mask, mask, MP_dim, input_dim, 
                         with_filter_layer, context_layer_num, context_lstm_dim,is_training,dropout_rate,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num,
@@ -284,6 +291,23 @@ class SentenceMatchModelGraph(object):
     def get_in_question_words(self):
         return self.__in_question_words
 
+    def get_in_question_dep_con(self):
+        return self.__in_question_dep_con
+
+    def set_in_question_dep_con(self, value):
+        self.__in_question_dep_con = value
+    
+    def del_in_question_dep_con(self):
+        del self.__in_question_dep_con
+    
+    def get_in_passage_dep_con(self):
+        return self.__in_passage_dep_con
+    
+    def set_in_passage_dep_con(self, value):
+        self.__in_passage_dep_con = value
+    
+    def del_in_passage_dep_con(self):
+        del self.__in_passage_dep_con
 
     def get_in_passage_words(self):
         return self.__in_passage_words
@@ -566,6 +590,8 @@ class SentenceMatchModelGraph(object):
     in_passage_words = property(get_in_passage_words, set_in_passage_words, del_in_passage_words, "in_passage_words's docstring")
     in_question_dependency = property(get_in_question_dependency, set_in_question_dependency, del_in_question_dependency, "in_question_dependency's docstring")
     in_passage_dependency = property(get_in_passage_dependency, set_in_passage_dependency, del_in_passage_dependency, "in_passage_dependency's docstring")
+    in_question_dep_con = property(get_in_question_dep_con, set_in_question_dep_con, del_in_question_dep_con, "in_question_dependency connections's docstring")
+    in_passage_dep_con = property(get_in_passage_dep_con, set_in_passage_dep_con, del_in_passage_dep_con, "in_passage_dependency connections's docstring")
     word_embedding = property(get_word_embedding, set_word_embedding, del_word_embedding, "word_embedding's docstring")
     in_question_POSs = property(get_in_question_poss, set_in_question_poss, del_in_question_poss, "in_question_POSs's docstring")
     in_passage_POSs = property(get_in_passage_poss, set_in_passage_poss, del_in_passage_poss, "in_passage_POSs's docstring")

@@ -57,7 +57,8 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
         (label_batch, sent1_batch, sent2_batch, label_id_batch, word_idx_1_batch, word_idx_2_batch, 
                                  char_matrix_idx_1_batch, char_matrix_idx_2_batch, sent1_length_batch, sent2_length_batch, 
                                  sent1_char_length_batch, sent2_char_length_batch,
-                                 POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch, dependency1_batch, dependency2_batch) = cur_dev_batch
+                                 POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch, 
+                                 dependency1_batch, dependency2_batch, dep_con1_batch, dep_con2_batch) = cur_dev_batch
         feed_dict = {
                     valid_graph.get_truth(): label_id_batch, 
                     valid_graph.get_question_lengths(): sent1_length_batch, 
@@ -72,8 +73,10 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
 #                     valid_graph.get_in_passage_chars(): char_matrix_idx_2_batch, 
                 }
         if FLAGS.with_dep:
-                feed_dict[valid_graph.get_in_question_dependency()] = dependency1_batch
-                feed_dict[valid_graph.get_in_passage_dependency()] = dependency2_batch
+            feed_dict[valid_graph.get_in_question_dependency()] = dependency1_batch
+            feed_dict[valid_graph.get_in_passage_dependency()] = dependency2_batch
+            feed_dict[valid_graph.get_in_question_dep_con()] = dep_con1_batch
+            feed_dict[valid_graph.get_in_passage_dep_con()] = dep_con2_batch
         if char_vocab is not None:
             feed_dict[valid_graph.get_question_char_lengths()] = sent1_char_length_batch
             feed_dict[valid_graph.get_passage_char_lengths()] = sent2_char_length_batch
@@ -132,7 +135,7 @@ def main(_):
     # build vocabs
     parser = None
     if FLAGS.with_dep:
-        parser=Parser('final_dependency')
+        parser=Parser('snli')
     word_vocab = Vocab(word_vec_path, fileformat='txt3', parser=parser) #fileformat='txt3'
     best_path = path_prefix + '.best.model'
     char_path = path_prefix + ".char_vocab"
@@ -274,13 +277,15 @@ def main(_):
             (label_batch, sent1_batch, sent2_batch, label_id_batch, word_idx_1_batch, word_idx_2_batch, 
                                  char_matrix_idx_1_batch, char_matrix_idx_2_batch, sent1_length_batch, sent2_length_batch, 
                                  sent1_char_length_batch, sent2_char_length_batch,
-                                 POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch, dependency1_batch, dependency2_batch) = cur_batch
+                                 POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch, 
+                                 dependency1_batch, dependency2_batch, dep_con1_batch, dep_con2_batch) = cur_batch
             feed_dict = {
                          train_graph.get_truth(): label_id_batch, 
                          train_graph.get_question_lengths(): sent1_length_batch, 
                          train_graph.get_passage_lengths(): sent2_length_batch, 
                          train_graph.get_in_question_words(): word_idx_1_batch, 
                          train_graph.get_in_passage_words(): word_idx_2_batch,
+
                          #train_graph.get_in_question_dependency(): dependency1_batch,
                          #train_graph.get_in_passage_dependency(): dependency2_batch,
 #                          train_graph.get_question_char_lengths(): sent1_char_length_batch, 
@@ -291,6 +296,8 @@ def main(_):
             if FLAGS.with_dep:
                 feed_dict[train_graph.get_in_question_dependency()] = dependency1_batch
                 feed_dict[train_graph.get_in_passage_dependency()] = dependency2_batch
+                feed_dict[train_graph.get_in_question_dep_con()] = dep_con1_batch
+                feed_dict[train_graph.get_in_passage_dep_con()] = dep_con2_batch
 
             if char_vocab is not None:
                 feed_dict[train_graph.get_question_char_lengths()] = sent1_char_length_batch
@@ -367,6 +374,8 @@ def main(_):
 
         accuracy = evaluate(testDataStream, valid_graph, sess,char_vocab=char_vocab,POS_vocab=POS_vocab, NER_vocab=NER_vocab)
         print("Accuracy for test set is %.2f" % accuracy)
+        accuracy_train = evaluate(trainDataStream, valid_graph, sess,char_vocab=char_vocab,POS_vocab=POS_vocab, NER_vocab=NER_vocab)
+        print("Accuracy for train set is %.2f" % accuracy_train)
 def set_args(config_file, FLAGS):
     import json
     with open(config_file, 'r') as f:

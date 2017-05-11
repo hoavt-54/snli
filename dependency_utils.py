@@ -47,6 +47,7 @@ class Parser(object):
         else:
             nodes = result.nodes
         parsed_sent = self.emptylistmaker(len(sentence.split())) #[[0...0],[0...0], ...]
+        dep_cons = self.neglistmaker(len(sentence.split())) #[-1, -1 ... -1]
         #print nodes, len(nodes), len(parsed_sent), len(sentence.split())
         for idx in range(len(nodes)):
             try:
@@ -57,6 +58,8 @@ class Parser(object):
                     root = parsed_sent[dep_idx - 1]
                     root[dep_type_idx] = 1
                     parsed_sent[dep_idx - 1] = root
+                    # for connection
+                    dep_cons[dep_idx - 1] = -1
                     continue
                 head = parsed_sent[idx-1]
                 for dep in node['deps']: # nsubj: [5]
@@ -71,6 +74,9 @@ class Parser(object):
                         #print dependent
                         parsed_sent[idx-1] = head
                         parsed_sent[dep_idx - 1] = dependent
+                        #add dependency connection
+                        dep_cons[dep_idx - 1] = idx-1
+
                     except Exception as e:
                         print(list(dep_res.triples()))
                         print str(e)
@@ -83,16 +89,17 @@ class Parser(object):
             except  Exception as e:
                 print str(e)
                 print sentence
-        self.cache[sentence] = parsed_sent
-        return parsed_sent
+        results = {'emb':parsed_sent, 'con': dep_cons} 
+        self.cache[sentence] = results
+        return results
     def load_cache(self):
-        import glob
-        #for jfile in glob.glob(self.path_to_save + '/dependency*.json'):
+        print "loading dependency cache"
+        #import glob
+        #for jfile in glob.glob(self.path_to_save + '/' + self.datasetName + '_*.json'):
         #    print jfile
         #    with open(jfile) as f:
         #        cache = json.load(f)
         #        self.cache = dict(self.cache.items() + cache.items())
-        print "loading dependency cache"
         
         if not os.path.isfile(self.path_to_save + '/' + self.datasetName +'.json'): return
         with open(self.path_to_save +'/' + self.datasetName + '.json') as f:
@@ -105,6 +112,9 @@ class Parser(object):
     def zerolistmaker(self, n):
         listofzeros = [0] * n
         return listofzeros
+    def neglistmaker(self, n):
+        listneg = [-2] *n
+        return listneg
     
     def emptylistmaker(self, n):
         listofzeros = self.zerolistmaker(self.typesize)
@@ -115,16 +125,18 @@ class Parser(object):
 
 if __name__ == '__main__':
     import sys
-    reload(sys)
-    sys.setdefaultencoding('utf8')
-    parser = Parser('multinli_train5')
-    #results = parser.parse('the blode woman is riding the bike\\')
+    #reload(sys)
+    #sys.setdefaultencoding('utf-8')
+    parser = Parser('snli')
+    #parser.save_cache()
+    #results = parser.parse('Hoa is the most handsome guy on earth .')
     #print '\n\n'
+    #print results['con']
     #for w in results: print w
     #results = parser.parse_sentences(['the blode woman is riding the bike', 'Hoa is the most handsome guy on earth'])
     #parser.save_cache()
-    #sys.exit()
-    path = '/users/ud2017/hoavt/nli/multinli_0.9/multinli_0.9_train5.tsv'
+    sys.exit()
+    path = '/users/ud2017/hoavt/nli/snli_1.0/snli_1.0_train5.tsv'
     with open(path, 'r') as filein:
         count = 1
         sentences = []
@@ -135,7 +147,7 @@ if __name__ == '__main__':
                 sentences.append(parts[1])
             if not parser.isParsed(parts[2]):
                 sentences.append(parts[2])
-            if(count > 2 and len(sentences) > 1):
+            if(count > 100 and len(sentences) > 80):
                 parser.parse_sentences(sentences)
                 sentences = []
                 parser.save_cache()

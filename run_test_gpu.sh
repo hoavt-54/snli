@@ -4,7 +4,7 @@
 #$ -q albert.q
 #
 # Your job name
-#$ -N nli_BiMPM_dep_v800
+#$ -N test_gpu
 #
 # Use current working directory
 #$ -cwd
@@ -18,5 +18,6 @@
 
 # Activate virtualenv
 #source /opt/deeplearningenv/bin/activate
-source ~/hoavt/hoa_env/snli/bin/activate
-~/hoavt/hoa_env/snli/bin/python SentenceMatchTrainer.py
+#source ~/hoavt/hoa_env/snli/bin/activate
+source /users/ud2017/hoavt/hoa_env/tensorflow0.12-gpu/bin/activate
+~/hoavt/hoa_env/snli/bin/python test_gpu.python
