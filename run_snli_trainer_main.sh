@@ -4,7 +4,7 @@
 #$ -q main.q
 #
 # Your job name
-#$ -N test_gpu
+#$ -N nli_BiMPM_dep_connections 
 #
 # Use current working directory
 #$ -cwd
@@ -19,4 +19,4 @@
 # Activate virtualenv
 #source /opt/deeplearningenv/bin/activate
 source ~/hoavt/hoa_env/snli/bin/activate
-THEANO_FLAGS=mode=FAST_RUN,device=gpu,floatX=float32 ~/hoavt/hoa_env/snli/bin/python test_gpu.py
+~/hoavt/hoa_env/snli/bin/python SentenceMatchTrainer.py

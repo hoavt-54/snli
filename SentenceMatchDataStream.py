@@ -41,8 +41,8 @@ class SentenceMatchDataStream(object):
         infile = open(inpath, 'rt')
         for line in infile:
             #print (line)
-            if(count_ins > 1000): break
-            count_ins +=1
+            #if(count_ins > 30): break
+            #count_ins +=1
             line = line.decode('utf-8').strip()
             if line.startswith('-'): continue
             items = re.split("\t", line)
@@ -56,13 +56,21 @@ class SentenceMatchDataStream(object):
                 label_id = int(label)
             word_idx_1 = word_vocab.to_index_sequence(sentence1)
             word_idx_2 = word_vocab.to_index_sequence(sentence2)
+            #print(len(word_idx_1), len(word_idx_2))
             dependency1, dependency2 = None, None
             dep_con1, dep_con2 = None, None
-            if with_dep:
-                dependency1, dep_con1 = word_vocab.dep_sequence(items[1])#(sentence_length, dependency_dim)
-                dependency2, dep_con2 = word_vocab.dep_sequence(items[2])
+            #if with_dep:
+            #    dependency1, dep_con1 = word_vocab.dep_sequence(items[1])#(sentence_length, dependency_dim)
+            #    dependency2, dep_con2 = word_vocab.dep_sequence(items[2])
+            #    print(len(dep_con1), dep_con1) 
+            #    print(len(dep_con2), dep_con2)
+            #    print(len(dependency1), dependency1)
+            #    print(len(dependency2), dependency2)
+                
+
             char_matrix_idx_1 = char_vocab.to_character_matrix(sentence1)
             char_matrix_idx_2 = char_vocab.to_character_matrix(sentence2)
+            #print('character_len: ', len(char_matrix_idx_1), len(char_matrix_idx_2))
             if len(word_idx_1)>max_sent_length: 
                 word_idx_1 = word_idx_1[:max_sent_length]
                 char_matrix_idx_1 = char_matrix_idx_1[:max_sent_length]

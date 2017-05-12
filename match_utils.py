@@ -461,7 +461,7 @@ def tile_repeat(n, repTime):
     create something like 111..122..2333..33 ..... n..nn 
     one particular number appears repTime consecutively 
     '''
-    print n, repTime
+    #print n, repTime
     idx = tf.range(n)
     idx = tf.reshape(idx, [-1, 1])    # Convert to a n x 1 matrix.
     idx = tf.tile(idx, [1, repTime])  # Create multiple columns, each column has one number repeats repTime 
@@ -589,11 +589,11 @@ def bilateral_match_func2(in_question_repres, in_passage_repres, in_question_dep
                     (question_context_representation_fw, question_context_representation_bw), _ = my_rnn.bidirectional_dynamic_rnn(
                                         context_lstm_cell_fw, context_lstm_cell_bw, in_question_repres, dtype=tf.float32, 
                                         sequence_length=question_lengths) # [batch_size, question_len, context_lstm_dim]
-                    #question_extracted_fw = gather_along_second_axis(question_context_representation_fw, in_question_dep_cons) # [batch_size, sentence_length, word_dim]
-                    #question_extracted_bw = gather_along_second_axis(question_context_representation_bw, in_question_dep_cons)# [batch_size, sentence_length, word_dim]
+                    question_extracted_fw = gather_along_second_axis(question_context_representation_fw, in_question_dep_cons) # [batch_size, sentence_length, word_dim]
+                    question_extracted_bw = gather_along_second_axis(question_context_representation_bw, in_question_dep_cons)# [batch_size, sentence_length, word_dim]
                     
-                    #question_context_representation_fw = tf.concat(2, [question_context_representation_fw, question_extracted_fw])
-                    #question_context_representation_bw = tf.concat(2, [question_context_representation_bw, question_extracted_bw])
+                    question_context_representation_fw = tf.concat(2, [question_context_representation_fw, question_extracted_fw])
+                    question_context_representation_bw = tf.concat(2, [question_context_representation_bw, question_extracted_bw])
                     in_question_repres = tf.concat(2, [question_context_representation_fw, question_context_representation_bw])
 
                     # passage representation
@@ -601,10 +601,10 @@ def bilateral_match_func2(in_question_repres, in_passage_repres, in_question_dep
                     (passage_context_representation_fw, passage_context_representation_bw), _ = my_rnn.bidirectional_dynamic_rnn(
                                         context_lstm_cell_fw, context_lstm_cell_bw, in_passage_repres, dtype=tf.float32, 
                                         sequence_length=passage_lengths) # [batch_size, passage_len, context_lstm_dim]
-                    #passage_extracted_fw = gather_along_second_axis(passage_context_representation_fw, in_passage_dep_cons) # [batch_size, sentence_length, word_dim]
-                    #passage_extracted_bw = gather_along_second_axis(passage_context_representation_bw, in_passage_dep_cons)# [batch_size, sentence_length, word_dim]
-                    #passage_context_representation_fw = tf.concat(2, [passage_context_representation_fw, passage_extracted_fw])# [batch_size, sentence_length, 2*word_dim] 
-                    #passage_context_representation_bw = tf.concat(2, [passage_context_representation_bw, passage_extracted_bw])# [batch_size, sentence_length, 2*word_dim] 
+                    passage_extracted_fw = gather_along_second_axis(passage_context_representation_fw, in_passage_dep_cons) # [batch_size, sentence_length, word_dim]
+                    passage_extracted_bw = gather_along_second_axis(passage_context_representation_bw, in_passage_dep_cons)# [batch_size, sentence_length, word_dim]
+                    passage_context_representation_fw = tf.concat(2, [passage_context_representation_fw, passage_extracted_fw])# [batch_size, sentence_length, 2*word_dim] 
+                    passage_context_representation_bw = tf.concat(2, [passage_context_representation_bw, passage_extracted_bw])# [batch_size, sentence_length, 2*word_dim] 
 
                     in_passage_repres = tf.concat(2, [passage_context_representation_fw, passage_context_representation_bw])
                     
@@ -613,7 +613,7 @@ def bilateral_match_func2(in_question_repres, in_passage_repres, in_question_dep
                     (matching_vectors, matching_dim) = match_passage_with_question(passage_context_representation_fw, 
                                 passage_context_representation_bw, mask,
                                 question_context_representation_fw, question_context_representation_bw,question_mask,
-                                MP_dim, context_lstm_dim, scope=None,
+                                MP_dim, context_lstm_dim *2, scope=None,
                                 with_full_match=with_full_match, with_maxpool_match=with_maxpool_match, 
                                 with_attentive_match=with_attentive_match, with_max_attentive_match=with_max_attentive_match)
                     question_aware_representatins.extend(matching_vectors)
@@ -623,7 +623,7 @@ def bilateral_match_func2(in_question_repres, in_passage_repres, in_question_dep
                     (matching_vectors, matching_dim) = match_passage_with_question(question_context_representation_fw, 
                                 question_context_representation_bw, question_mask,
                                 passage_context_representation_fw, passage_context_representation_bw,mask,
-                                MP_dim, context_lstm_dim, scope=None,
+                                MP_dim, context_lstm_dim *2, scope=None,
                                 with_full_match=with_full_match, with_maxpool_match=with_maxpool_match, 
                                 with_attentive_match=with_attentive_match, with_max_attentive_match=with_max_attentive_match)
                     passage_aware_representatins.extend(matching_vectors)
