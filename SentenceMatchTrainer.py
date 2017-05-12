@@ -136,7 +136,7 @@ def main(_):
     parser = None
     if FLAGS.with_dep:
         parser=Parser('snli')
-    word_vocab = Vocab(word_vec_path, fileformat='txt3', parser=parser) #fileformat='txt3'
+    word_vocab = Vocab(word_vec_path, fileformat='txt3', parser=parser, beginning=FLAGS.beginning) #fileformat='txt3'
     best_path = path_prefix + '.best.model'
     char_path = path_prefix + ".char_vocab"
     label_path = path_prefix + ".label_vocab"
@@ -162,7 +162,7 @@ def main(_):
         label_vocab.dump_to_txt2(label_path)
 
         print('Number of chars: {}'.format(len(all_chars)))
-        char_vocab = Vocab(fileformat='voc', voc=all_chars,dim=FLAGS.char_emb_dim)
+        char_vocab = Vocab(fileformat='voc', voc=all_chars,dim=FLAGS.char_emb_dim, beginning=FLAGS.beginning)
         char_vocab.dump_to_txt2(char_path)
         
         if FLAGS.with_POS:
@@ -430,7 +430,7 @@ if __name__ == '__main__':
     parser.add_argument('--wo_char', default=False, help='Without character-composed embeddings.', action='store_true')
     parser.add_argument('--config_file', default='quora.sample.config', help='path to config file')
     parser.add_argument('--with_dep', default=True, help='indicate whether we use dependency')
-
+    parser.add_argument('--beginning', default=False, help='indicate whether we add 2 beginning tokens to connect dependency')
     #print("CUDA_VISIBLE_DEVICES " + os.environ['CUDA_VISIBLE_DEVICES'])
     sys.stdout.flush()
     FLAGS, unparsed = parser.parse_known_args()

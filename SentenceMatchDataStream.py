@@ -61,7 +61,6 @@ class SentenceMatchDataStream(object):
             if with_dep:
                 dependency1, dep_con1 = word_vocab.dep_sequence(items[1])#(sentence_length, dependency_dim)
                 dependency2, dep_con2 = word_vocab.dep_sequence(items[2])
-            #print (dependency2)
             char_matrix_idx_1 = char_vocab.to_character_matrix(sentence1)
             char_matrix_idx_2 = char_vocab.to_character_matrix(sentence2)
             if len(word_idx_1)>max_sent_length: 

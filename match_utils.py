@@ -1,4 +1,5 @@
 import tensorflow as tf
+from tensorflow import Tensor as ts
 from tensorflow.python.ops import rnn
 import my_rnn
 
@@ -424,25 +425,6 @@ def unidirectional_matching(in_question_repres, in_passage_repres,question_lengt
     aggregation_representation = tf.concat(1, aggregation_representation) # [batch_size, aggregation_dim]
 
 
-def gather_along_second_axis(data, indices):
-    '''
-    data has shape: [batch_size, sentence_length, word_dim]
-    indices is list of index we want to gather
-    1. add -1 and -2 to sentence
-    2. increase each indices by 2
-    3. gather according to indices
-    '''
-
-    flat_indices = tf.tile(indices[None, :], [tf.shape(data)[0], 1])
-    batch_offset = tf.range(0, tf.shape(data)[0]) * tf.shape(data)[1]
-    flat_indices = tf.reshape(flat_indices + batch_offset[:, None], [-1])
-    flat_data = tf.reshape(data, tf.concat([[-1], tf.shape(data)[2:]], 0))
-    result_shape = tf.concat([[tf.shape(data)[0], -1], tf.shape(data)[2:]], 0)
-    result = tf.reshape(tf.gather(flat_data, flat_indices), result_shape)
-    shape = data.shape[:1].concatenate(indices.shape[:1])
-    result.set_shape(shape.concatenate(data.shape[2:]))
-    return result
-
 
     # ======Highway layer======
     if with_aggregation_highway:
@@ -454,7 +436,55 @@ def gather_along_second_axis(data, indices):
             aggregation_representation = tf.reshape(aggregation_representation, [batch_size, aggregation_dim])
 
     return (aggregation_representation, aggregation_dim)
-        
+
+def gather_along_second_axis1(data, indices):
+    '''
+    data has shape: [batch_size, sentence_length, word_dim]
+    indices is list of index we want to gather
+    1. add -1 and -2 to sentence ==> [batch_size, sentence_length + 2, word_dim]
+    2. increase each indices by 2
+    3. gather according to indices
+    '''
+    #add -1 
+    flat_indices = tf.tile(indices[None, :], [tf.shape(data)[0], 1])
+    batch_offset = tf.range(0, tf.shape(data)[0]) * tf.shape(data)[1]
+    flat_indices = tf.reshape(flat_indices + batch_offset[:, None], [-1])
+    flat_data = tf.reshape(data, tf.concat([[-1], tf.shape(data)[2:]], 0))
+    result_shape = tf.concat([[tf.shape(data)[0], -1], tf.shape(data)[2:]], 0)
+    result = tf.reshape(tf.gather(flat_data, flat_indices), result_shape)
+    shape = data.shape[:1].concatenate(indices.shape[:1])
+    result.set_shape(shape.concatenate(data.shape[2:]))
+    return result
+
+def tile_repeat(n, repTime):
+    '''
+    create something like 111..122..2333..33 ..... n..nn 
+    one particular number appears repTime consecutively 
+    '''
+    print n, repTime
+    idx = tf.range(n)
+    idx = tf.reshape(idx, [-1, 1])    # Convert to a n x 1 matrix.
+    idx = tf.tile(idx, [1, repTime])  # Create multiple columns, each column has one number repeats repTime 
+    y = tf.reshape(idx, [-1])
+    return y
+
+def gather_along_second_axis(x, idx):
+    ''' 
+    x has shape: [batch_size, sentence_length, word_dim]
+    idx has shape: [batch_size, num_indices]
+    Basically, in each batch, get words from sentence having index specified in idx
+    However, since tensorflow does not fully support indexing,
+    gather only work for the first axis. We have to reshape the input data, gather then reshape again
+    '''
+    idx1= tf.reshape(idx, [-1]) # [batch_size*num_indices]
+    idx_flattened = tile_repeat(tf.shape(idx)[0], tf.shape(idx)[1]) * tf.shape(x)[1] + idx1
+    y = tf.gather(tf.reshape(x, [-1,tf.shape(x)[2]]),  # flatten input
+                idx_flattened)
+    y = tf.reshape(y, tf.shape(x)) 
+    return y
+
+
+
 def bilateral_match_func1(in_question_repres, in_passage_repres,
                         question_lengths, passage_lengths, question_mask, mask, MP_dim, input_dim, 
                         with_filter_layer, context_layer_num, context_lstm_dim,is_training,dropout_rate,
@@ -556,12 +586,14 @@ def bilateral_match_func2(in_question_repres, in_passage_repres, in_question_dep
                     context_lstm_cell_bw = tf.nn.rnn_cell.MultiRNNCell([context_lstm_cell_bw])
 
                     # question representation
-                    print('before biLSTM shape ques repres: ', tf.Tensor.get_shape(in_question_repres))
                     (question_context_representation_fw, question_context_representation_bw), _ = my_rnn.bidirectional_dynamic_rnn(
                                         context_lstm_cell_fw, context_lstm_cell_bw, in_question_repres, dtype=tf.float32, 
                                         sequence_length=question_lengths) # [batch_size, question_len, context_lstm_dim]
-                    print('after biLSTM shape ques repres: ', tf.Tensor.get_shape(question_context_representation_fw), tf.Tensor.get_shape(question_context_representation_bw))
-                    print(in_question_dep_cons) #[batch_size, question_len]
+                    #question_extracted_fw = gather_along_second_axis(question_context_representation_fw, in_question_dep_cons) # [batch_size, sentence_length, word_dim]
+                    #question_extracted_bw = gather_along_second_axis(question_context_representation_bw, in_question_dep_cons)# [batch_size, sentence_length, word_dim]
+                    
+                    #question_context_representation_fw = tf.concat(2, [question_context_representation_fw, question_extracted_fw])
+                    #question_context_representation_bw = tf.concat(2, [question_context_representation_bw, question_extracted_bw])
                     in_question_repres = tf.concat(2, [question_context_representation_fw, question_context_representation_bw])
 
                     # passage representation
@@ -569,6 +601,11 @@ def bilateral_match_func2(in_question_repres, in_passage_repres, in_question_dep
                     (passage_context_representation_fw, passage_context_representation_bw), _ = my_rnn.bidirectional_dynamic_rnn(
                                         context_lstm_cell_fw, context_lstm_cell_bw, in_passage_repres, dtype=tf.float32, 
                                         sequence_length=passage_lengths) # [batch_size, passage_len, context_lstm_dim]
+                    #passage_extracted_fw = gather_along_second_axis(passage_context_representation_fw, in_passage_dep_cons) # [batch_size, sentence_length, word_dim]
+                    #passage_extracted_bw = gather_along_second_axis(passage_context_representation_bw, in_passage_dep_cons)# [batch_size, sentence_length, word_dim]
+                    #passage_context_representation_fw = tf.concat(2, [passage_context_representation_fw, passage_extracted_fw])# [batch_size, sentence_length, 2*word_dim] 
+                    #passage_context_representation_bw = tf.concat(2, [passage_context_representation_bw, passage_extracted_bw])# [batch_size, sentence_length, 2*word_dim] 
+
                     in_passage_repres = tf.concat(2, [passage_context_representation_fw, passage_context_representation_bw])
                     
                 # Multi-perspective matching

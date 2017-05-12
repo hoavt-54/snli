@@ -4,10 +4,11 @@ import numpy as np
 import re
 
 # import math
-MAX_VOCAB = 800
+MAX_VOCAB = 500
 class Vocab(object):
-    def __init__(self, vec_path=None, dim=100, fileformat='bin',voc=None, word2id=None, word_vecs=None, unk_mapping_path=None, parser=None): 
+    def __init__(self, vec_path=None, dim=100, fileformat='bin',voc=None, word2id=None, word_vecs=None, unk_mapping_path=None, parser=None, beginning=False): 
         self.parser = parser
+        self.beginning = beginning
         self.unk_label = '<unk>'
         self.stoplist = None
         if fileformat == 'bin':
@@ -144,6 +145,21 @@ class Vocab(object):
             if (cur_index > MAX_VOCAB): 
                 print ("stop at: ", word)
                 break
+        if self.beginning:
+            #add root_word
+            cur_index = len(self.word2id)
+            self.word2id['root_word'] = cur_index
+            self.id2word[cur_index] = 'root_word'
+            word_vecs[cur_index] = np.zeros((self.word_dim), dtype=np.float32)
+            
+            #add nowhere token
+            cur_index = len(self.word2id)
+            self.word2id['nonsense_word'] = cur_index
+            self.id2word[cur_index] = 'nonsense_word'
+            a = np.empty(self.word_dim, dtype=np.float32)
+            a.fill(-10)
+            word_vecs[cur_index] = a
+
         vec_file.close()
 
         self.vocab_size = len(self.word2id)
@@ -287,14 +303,29 @@ class Vocab(object):
             idx = self.word2id.get(word)
             return self.word_vecs[idx]
         return None
+
+    def zerolistmaker(self, n):
+        return [0] * n
     
     def dep_sequence(self, sentence):
         vec_list = self.parser.parse(sentence)
-        return np.array(vec_list['emb'], dtype='float32'), np.array(vec_list['con'], dtype='float32')
+        emb, con = vec_list['emb'], vec_list['con']
+        if self.beginning:
+            emb = [self.zerolistmaker(self.parser.typesize)] + emb
+            emb = [self.zerolistmaker(self.parser.typesize)] + emb
+            con = [x+2 for x in con]
+            con.insert(0,1) # root connect to itself
+            con.insert(0,0) # nowhere connect to itself
+        return np.array(emb, dtype='float32'), np.array(con, dtype='float32')
     def to_index_sequence(self, sentence):
 #         sentence = sentence.strip().lower()
         sentence = sentence.strip()
         seq = []
+        if self.beginning:
+            nowhere = self.getIndex('nonsense_word')
+            seq.append(nowhere)
+            root = self.getIndex('root_word')
+            seq.append(root)
         for word in re.split('\\s+', sentence):
             idx = self.getIndex(word)
             if idx == None and self.__unk_mapping is not None and self.__unk_mapping.has_key(word):
@@ -321,6 +352,8 @@ class Vocab(object):
 #         sentence = sentence.strip().lower()
         sentence = sentence.strip()
         seq = []
+        if self.beginning:
+            sentence = '<<<< >>>> ' + sentence
         for word in re.split('\\s+', sentence):
             cur_seq = []
             for i in xrange(len(word)):
