@@ -35,7 +35,7 @@ def pad_3d_tensor(in_val, max_length1=None, max_length2=None, dtype=np.int32):
 
 class SentenceMatchDataStream(object):
     def __init__(self, inpath, word_vocab=None, char_vocab=None, POS_vocab=None, NER_vocab=None, label_vocab=None, batch_size=60, 
-                 isShuffle=False, isLoop=False, isSort=True, max_char_per_word=10, with_dep = False, max_sent_length=200):
+                 isShuffle=False, isLoop=False, isSort=True, max_char_per_word=10, with_dep = False, max_sent_length=200, with_image=False, image_feats=None):
         instances = []
         count_ins = 0
         infile = open(inpath, 'rt')
@@ -49,6 +49,18 @@ class SentenceMatchDataStream(object):
             label = items[0]
             sentence1 = items[1].lower()
             sentence2 = items[2].lower()
+
+
+            img_feats = None
+            if with_image:
+                #print(items[3])
+                if len(items) < 4 or len(items[3]) < 3: 
+                    print('skip', line)
+                    continue
+                img_feats=image_feats.get_feat(items[3].strip())
+                if img_feats is None: raise Exception('feature not found for' + items[3]) 
+            
+            
             if label_vocab is not None: 
                 label_id = label_vocab.getIndex(label)
                 if label_id >= label_vocab.vocab_size: label_id = 0
@@ -59,9 +71,9 @@ class SentenceMatchDataStream(object):
             #print(len(word_idx_1), len(word_idx_2))
             dependency1, dependency2 = None, None
             dep_con1, dep_con2 = None, None
-            #if with_dep:
-            #    dependency1, dep_con1 = word_vocab.dep_sequence(items[1])#(sentence_length, dependency_dim)
-            #    dependency2, dep_con2 = word_vocab.dep_sequence(items[2])
+            if with_dep:
+                dependency1, dep_con1 = word_vocab.dep_sequence(items[1])#(sentence_length, dependency_dim)
+                dependency2, dep_con2 = word_vocab.dep_sequence(items[2])
             #    print(len(dep_con1), dep_con1) 
             #    print(len(dep_con2), dep_con2)
             #    print(len(dependency1), dependency1)
@@ -102,7 +114,7 @@ class SentenceMatchDataStream(object):
             
 
             instances.append((label, sentence1, sentence2, label_id, word_idx_1, word_idx_2, char_matrix_idx_1, char_matrix_idx_2,
-                              POS_idx_1, POS_idx_2, NER_idx_1, NER_idx_2, dependency1, dependency2, dep_con1, dep_con2))
+                              POS_idx_1, POS_idx_2, NER_idx_1, NER_idx_2, dependency1, dependency2, dep_con1, dep_con2, img_feats))
         infile.close()
 
         # sort instances based on sentence length
@@ -139,10 +151,14 @@ class SentenceMatchDataStream(object):
             if NER_vocab is not None: NER_idx_1_batch = []
             NER_idx_2_batch = None
             if NER_vocab is not None: NER_idx_2_batch = []
+            
+            img_feats_batch=None
+            if with_image:
+                img_feats_batch= []
 
             for i in xrange(batch_start, batch_end):
                 (label, sentence1, sentence2, label_id, word_idx_1, word_idx_2, char_matrix_idx_1, char_matrix_idx_2,
-                 POS_idx_1, POS_idx_2, NER_idx_1, NER_idx_2, dependency1, dependency2, dep_con1, dep_con2) = instances[i]
+                 POS_idx_1, POS_idx_2, NER_idx_1, NER_idx_2, dependency1, dependency2, dep_con1, dep_con2, img_feats) = instances[i]
                 label_batch.append(label)
                 sent1_batch.append(sentence1)
                 sent2_batch.append(sentence2)
@@ -169,6 +185,9 @@ class SentenceMatchDataStream(object):
                 if NER_vocab is not None: 
                     NER_idx_1_batch.append(NER_idx_1)
                     NER_idx_2_batch.append(NER_idx_2)
+
+                if with_image:
+                    img_feats_batch.append(img_feats) #[batch_size, feat_dim(4096)]
                 
                 
             cur_batch_size = len(label_batch)
@@ -221,12 +240,15 @@ class SentenceMatchDataStream(object):
             if NER_vocab is not None:
                 NER_idx_1_batch = pad_2d_matrix(NER_idx_1_batch, max_length=max_sent1_length)
                 NER_idx_2_batch = pad_2d_matrix(NER_idx_2_batch, max_length=max_sent2_length)
-                
+            
+            if with_image:
+                img_feats_batch = np.array(img_feats_batch)
 
             self.batches.append((label_batch, sent1_batch, sent2_batch, label_id_batch, word_idx_1_batch, word_idx_2_batch, 
                                  char_matrix_idx_1_batch, char_matrix_idx_2_batch, sent1_length_batch, sent2_length_batch, 
                                  sent1_char_length_batch, sent2_char_length_batch,
-                                 POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch, dependency1_batch, dependency2_batch, dep_con1_batch, dep_con2_batch))
+                                 POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch, 
+                                 dependency1_batch, dependency2_batch, dep_con1_batch, dep_con2_batch, img_feats_batch))
         
         instances = None
         self.num_batch = len(self.batches)

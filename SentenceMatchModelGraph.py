@@ -69,6 +69,10 @@ class SentenceMatchModelGraph(object):
             in_question_dep_cons = self.in_question_dep_con
             in_passage_dep_cons = self.in_passage_dep_con
 
+        #if with_image:
+        #    self.
+
+
 
         if with_POS and POS_vocab is not None: 
             self.in_question_POSs = tf.placeholder(tf.int32, [None, None]) # [batch_size, question_len]
@@ -91,7 +95,7 @@ class SentenceMatchModelGraph(object):
         if with_NER and NER_vocab is not None: 
             self.in_question_NERs = tf.placeholder(tf.int32, [None, None]) # [batch_size, question_len]
             self.in_passage_NERs = tf.placeholder(tf.int32, [None, None]) # [batch_size, passage_len]
-#             self.NER_embedding = tf.get_variable("NER_embedding", shape=[NER_vocab.size()+1, NER_vocab.word_dim], initializer=tf.constant(NER_vocab.word_vecs), dtype=tf.float32)
+            #self.NER_embedding = tf.get_variable("NER_embedding", shape=[NER_vocab.size()+1, NER_vocab.word_dim], initializer=tf.constant(NER_vocab.word_vecs), dtype=tf.float32)
             self.NER_embedding = tf.get_variable("NER_embedding", initializer=tf.constant(NER_vocab.word_vecs), dtype=tf.float32)
 
             in_question_NER_repres = tf.nn.embedding_lookup(self.NER_embedding, self.in_question_NERs) # [batch_size, question_len, NER_dim]
@@ -185,7 +189,7 @@ class SentenceMatchModelGraph(object):
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num,
                         with_aggregation_highway,with_lex_decomposition,lex_decompsition_dim,
                         with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
-                        with_left_match, with_right_match)
+                        with_left_match, with_right_match, with_dep=with_dep)
 
         #========Prediction Layer=========
         w_0 = tf.get_variable("w_0", [match_dim, match_dim/2], dtype=tf.float32)
@@ -583,6 +587,16 @@ class SentenceMatchModelGraph(object):
     def del_lr_rate(self):
         del self.__lr_rate
 
+    def get_image_feats(self):
+        return self.__image_feats
+
+    def set_image_feats(self, value):
+        self.__image_feats = value
+
+    def del_image_feats(self):
+        del self.__image_feats
+
+    image_feats = property(get_image_feats, set_image_feats, del_image_feats, "image_features's docstring")
     question_lengths = property(get_question_lengths, set_question_lengths, del_question_lengths, "question_lengths's docstring")
     passage_lengths = property(get_passage_lengths, set_passage_lengths, del_passage_lengths, "passage_lengths's docstring")
     truth = property(get_truth, set_truth, del_truth, "truth's docstring")

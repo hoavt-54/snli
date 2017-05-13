@@ -39,7 +39,7 @@ class Parser(object):
     def parse(self, sentence, result=None):
         if sentence in self.cache:
             return self.cache[sentence]
-        print sentence
+        print 'not found in cache: ', sentence
         if not result:
             result = self.dependency_parser.raw_parse(sentence)
             dep_res = result.next()

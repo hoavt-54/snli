@@ -8,6 +8,7 @@ import re
 import tensorflow as tf
 
 from vocab_utils import Vocab
+from image_utils import ImageFeatures
 from dependency_utils import Parser 
 from SentenceMatchDataStream import SentenceMatchDataStream
 from SentenceMatchModelGraph import SentenceMatchModelGraph
@@ -58,7 +59,7 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
                                  char_matrix_idx_1_batch, char_matrix_idx_2_batch, sent1_length_batch, sent2_length_batch, 
                                  sent1_char_length_batch, sent2_char_length_batch,
                                  POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch, 
-                                 dependency1_batch, dependency2_batch, dep_con1_batch, dep_con2_batch) = cur_dev_batch
+                                 dependency1_batch, dependency2_batch, dep_con1_batch, dep_con2_batch, img_feats_batch) = cur_dev_batch
         feed_dict = {
                     valid_graph.get_truth(): label_id_batch, 
                     valid_graph.get_question_lengths(): sent1_length_batch, 
@@ -77,6 +78,10 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
             feed_dict[valid_graph.get_in_passage_dependency()] = dependency2_batch
             feed_dict[valid_graph.get_in_question_dep_con()] = dep_con1_batch
             feed_dict[valid_graph.get_in_passage_dep_con()] = dep_con2_batch
+
+        if FLAGS.with_image:
+            feed_dict[train_graph.get_image_feats()] = img_feats_batch 
+
         if char_vocab is not None:
             feed_dict[valid_graph.get_question_char_lengths()] = sent1_char_length_batch
             feed_dict[valid_graph.get_passage_char_lengths()] = sent2_char_length_batch
@@ -133,9 +138,11 @@ def main(_):
     namespace_utils.save_namespace(FLAGS, path_prefix + ".config.json")
 
     # build vocabs
-    parser = None
+    parser,image_feats = None, None
     if FLAGS.with_dep:
         parser=Parser('snli')
+    if FLAGS.with_image:
+        image_feats=ImageFeatures()
     word_vocab = Vocab(word_vec_path, fileformat='txt3', parser=parser, beginning=FLAGS.beginning) #fileformat='txt3'
     best_path = path_prefix + '.best.model'
     char_path = path_prefix + ".char_vocab"
@@ -188,19 +195,22 @@ def main(_):
     trainDataStream = SentenceMatchDataStream(train_path, word_vocab=word_vocab, char_vocab=char_vocab, 
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
                                               batch_size=FLAGS.batch_size, isShuffle=True, isLoop=True, isSort=True, 
-                                              max_char_per_word=FLAGS.max_char_per_word, max_sent_length=FLAGS.max_sent_length, with_dep=FLAGS.with_dep)
+                                              max_char_per_word=FLAGS.max_char_per_word, max_sent_length=FLAGS.max_sent_length, 
+                                              with_dep=FLAGS.with_dep, with_image=FLAGS.with_image, image_feats=image_feats)
                         
     print('Reading devDataStream')
     devDataStream = SentenceMatchDataStream(dev_path, word_vocab=word_vocab, char_vocab=char_vocab,
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
                                               batch_size=FLAGS.batch_size, isShuffle=False, isLoop=True, isSort=True, 
-                                              max_char_per_word=FLAGS.max_char_per_word, max_sent_length=FLAGS.max_sent_length, with_dep=FLAGS.with_dep)
+                                              max_char_per_word=FLAGS.max_char_per_word, max_sent_length=FLAGS.max_sent_length, 
+                                              with_dep=FLAGS.with_dep, with_image=FLAGS.with_image, image_feats=image_feats)
 
     print('Reading testDataStream')
     testDataStream = SentenceMatchDataStream(test_path, word_vocab=word_vocab, char_vocab=char_vocab, 
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
                                               batch_size=FLAGS.batch_size, isShuffle=False, isLoop=True, isSort=True, 
-                                                  max_char_per_word=FLAGS.max_char_per_word, max_sent_length=FLAGS.max_sent_length, with_dep=FLAGS.with_dep)
+                                                  max_char_per_word=FLAGS.max_char_per_word, max_sent_length=FLAGS.max_sent_length, 
+                                                  with_dep=FLAGS.with_dep, with_image=FLAGS.with_image, image_feats=image_feats)
     print('save cache file')
     #word_vocab.parser.save_cache()
     print('Number of instances in trainDataStream: {}'.format(trainDataStream.get_num_instance()))
@@ -278,7 +288,7 @@ def main(_):
                                  char_matrix_idx_1_batch, char_matrix_idx_2_batch, sent1_length_batch, sent2_length_batch, 
                                  sent1_char_length_batch, sent2_char_length_batch,
                                  POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch, 
-                                 dependency1_batch, dependency2_batch, dep_con1_batch, dep_con2_batch) = cur_batch
+                                 dependency1_batch, dependency2_batch, dep_con1_batch, dep_con2_batch, img_feats_batch) = cur_batch
             feed_dict = {
                          train_graph.get_truth(): label_id_batch, 
                          train_graph.get_question_lengths(): sent1_length_batch, 
@@ -298,6 +308,9 @@ def main(_):
                 feed_dict[train_graph.get_in_passage_dependency()] = dependency2_batch
                 feed_dict[train_graph.get_in_question_dep_con()] = dep_con1_batch
                 feed_dict[train_graph.get_in_passage_dep_con()] = dep_con2_batch
+
+            if FLAGS.with_image:
+                feed_dict[train_graph.get_image_feats()] = img_feats_batch
 
             if char_vocab is not None:
                 feed_dict[train_graph.get_question_char_lengths()] = sent1_char_length_batch
